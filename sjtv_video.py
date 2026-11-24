@@ -23,6 +23,11 @@
   injury  {"note": "同じ負傷"}                      救急箱と氷のう
   next    {"month": "11月", "day": "29", "time": "日曜 23:05", "tag": "AWAY"}  カレンダーとバス
   quote   {"text": "短い発言"}                      大きな吹き出し（会見・発言）
+  comment {"theme": "今日のMOMは誰？"}               コメント欄への呼びかけ（毎回の締めの定番）
+
+締めの定番：最後のシーンは art "comment"。3人の回はひなっちが「〇〇をコメント欄に書き込んで！」と先導、
+結果速報（1人）は石川が呼びかける。お題はコメントしやすい一言で答えられるものにする
+  プレビュー例：スコア予想／先発予想／注目選手　レビュー・結果速報例：MOMは誰？／採点をつけて／今の気持ちを一言
 """
 import sys, os, re, json, math, html, wave, argparse, subprocess, urllib.request
 
@@ -157,7 +162,11 @@ def wrap(d, text, f, maxw):
         if ch == "\n": lines.append(cur); cur = ""; continue
         if d.textlength(cur + ch, font=f) > maxw and cur:
             if ch in "、。」）！？ゃゅょっぁぃぅぇぉャュョッァィゥェォー": cur += ch; continue
-            lines.append(cur); cur = ch
+            m = re.search(r"[A-Za-z0-9.]+$", cur)  # 英数字の語の途中で切らない
+            if m and ch.isascii() and ch.isalnum() and m.start() > 0:
+                lines.append(cur[:m.start()]); cur = cur[m.start():] + ch
+            else:
+                lines.append(cur); cur = ch
         else: cur += ch
     if cur: lines.append(cur)
     return lines
@@ -244,6 +253,17 @@ def art(kind, a, cw=960, ch=640):
         for i in range(4): d.rounded_rectangle(s(565 + i * 82, 325, 630 + i * 82, 385), 8 * SS, fill=(190, 210, 245))
         d.ellipse(s(590, 450, 660, 520), fill=NAVY2); d.ellipse(s(780, 450, 850, 520), fill=NAVY2)
         T(720, 430, a.get("tag", ""), FK, 34, GOLD); ball(720, 190, 60)
+    elif kind == "comment":  # コメント欄への呼びかけ（毎回の締め）
+        d.rounded_rectangle(s(70, 70, cw - 70, ch - 70), 40 * SS, fill=WHITE, outline=NAVY2, width=6 * SS)
+        d.rectangle(s(70, 70, cw - 70, 160), fill=NAVY); d.rounded_rectangle(s(70, 70, cw - 70, 160), 40 * SS, fill=NAVY)
+        d.rectangle(s(70, 120, cw - 70, 160), fill=NAVY)
+        T(cx, 115, "💬 コメント欄へ" if False else "コメント欄に書き込んで！", FK, 44, GOLD)
+        lines = wrap(d, a.get("theme", ""), font(FK, 64 * SS), (cw - 240) * SS)
+        T(cx, 300, "\n".join(lines[:3]), FK, 64, NAVY2, spacing=14 * SS)
+        for i, w in enumerate([420, 300, 360]):
+            y = 440 + i * 36; d.rounded_rectangle(s(150, y, 150 + w, y + 18), 9 * SS, fill=(215, 222, 238))
+            d.ellipse(s(100, y - 6, 130, y + 24), fill=(190, 200, 225))
+        d.rounded_rectangle(s(cw - 330, 470, cw - 130, 540), 35 * SS, fill=RED); T(cw - 230, 505, "送信", FK, 34, WHITE)
     elif kind == "quote":
         d.rounded_rectangle(s(90, 80, cw - 90, 470), 60 * SS, fill=WHITE, outline=NAVY2, width=6 * SS)
         d.polygon(s(220, 465, 180, 580, 320, 468), fill=WHITE); d.line(s(220, 470, 180, 580, 320, 470), fill=NAVY2, width=6 * SS)
