@@ -308,13 +308,13 @@ def frame(spec, sc, card, spk, text):
         av = avatar(cast[0], sz, True); im.paste(av, (x, yy), av)
         d.text((W // 2, 1385), CAST[cast[0]][0], font=font(FK, 34), fill=WHITE, anchor="ma")
     else:
-        x = 90
-        for c in cast:
-            act = c == spk; sz = 170 if act else 120; yy = 1190 + (0 if act else 30)
+        # 中央そろえ（左・中央・右）。右端はShortsの右側ボタン（右から約120px）にかからない位置
+        centers = [W // 2 - 310, W // 2, W // 2 + 310] if len(cast) == 3 else [W // 2 - 160, W // 2 + 160]
+        for c, cx in zip(cast, centers):
+            act = c == spk; sz = 170 if act else 120; x = cx - sz // 2; yy = 1190 + (0 if act else 30)
             if act: d.ellipse([x - 8, yy - 8, x + sz + 8, yy + sz + 8], outline=GOLD, width=6)
             av = avatar(c, sz, act); im.paste(av, (x, yy), av)
-            d.text((x + sz // 2, 1380), CAST[c][0], font=font(FK if act else FB, 34 if act else 28), fill=WHITE if act else GREY, anchor="ma")
-            x += sz + 90
+            d.text((cx, 1380), CAST[c][0], font=font(FK if act else FB, 34 if act else 28), fill=WHITE if act else GREY, anchor="ma")
     f = font(FB, 46); lines = wrap(d, text, f, 800); y0 = 1440; hh = 40 + 62 * len(lines)
     d.rounded_rectangle([50, y0, 960, y0 + hh], 22, fill=(0, 0, 0)); d.rectangle([50, y0 + 14, 60, y0 + hh - 14], fill=CAST[spk][1])
     for i, ln in enumerate(lines): d.text((90, y0 + 20 + 62 * i), ln, font=f, fill=WHITE)
