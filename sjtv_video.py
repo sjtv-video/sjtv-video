@@ -7,9 +7,9 @@
       → 台本JSONから動画を書き出す（表記チェック→音声→コマ→mp4）。初回は音声合成を自動で導入
 
 台本JSON:
-{"title": "スパーズ 2-0 イプスウィッチ", "label": "MATCH REVIEW",
+{"title": "スパーズ 2-0 イプスウィッチ", "label": "MATCH REVIEW", "cast": ["I", "H", "K"],  # castは出演者（1人なら大きく表示）
  "scenes": [{"art": "score", "args": {...}, "kicker": "結果", "info": ["1行目(強調)", "2行目", "3行目"],
-             "lines": [["I", "セリフ"], ["H", "..."], ["K", "..."]]}, ...],
+             "lines": [["I", "セリフ"], ["H", "..."], ["K", "字幕の文", "読み上げ用の文（読み間違いの回避。省略可）"]]}, ...],
  "credit": "情報源：..."}
 話者: I=石川（進行） H=ひなっち（事実） K=AKARI（ファン・トレーナー目線）
 イラスト(art)と args:
@@ -42,7 +42,7 @@ CAST = {  # 話者: (表示名, 色, 仮の声ファイル, 速さ, 高さ)  ※
     "H": ("ひなっち", (110, 210, 150), "tohoku-neutral", 1.08, -4.0),
     "K": ("AKARI", (255, 150, 190), "tohoku-happy", 1.08, 0.0),
 }
-SPEECH_FIX = [("＝", ""), ("2-0", "2対0"), ("0-1", "0対1"), ("1-0", "1対0"), ("1-1", "1対1"), ("2-1", "2対1"),
+SPEECH_FIX = [("＝", ""), ("勝った", "かった"), ("勝って", "かって"), ("勝つ", "かつ"), ("勝ちたい", "かちたい"), ("2-0", "2対0"), ("0-1", "0対1"), ("1-0", "1対0"), ("1-1", "1対1"), ("2-1", "2対1"),
               ("1ゴール1アシスト", "ワンゴール、ワンアシスト"), ("football.london", "フットボールロンドン"),
               ("Opta", "オプタ"), ("COYS", "カモン・ユー・スパーズ"), ("GK", "ゴールキーパー"), ("CB", "センターバック"),
               ("SB", "サイドバック"), ("xG", "ゴール期待値"), ("スパーズジャパンTV", "スパーズジャパン・ティーヴィー"),
@@ -138,6 +138,12 @@ def tts(spk, text, out):
         w.setnchannels(1); w.setsampwidth(2); w.setframerate(sr); w.writeframes(x.tobytes())
     return len(x) / sr
 
+def reading(text):
+    import pyopenjtalk
+    s = text
+    for x, y in SPEECH_FIX: s = s.replace(x, y)
+    return pyopenjtalk.g2p(s, kana=True)
+
 # ================= 描画 =================
 from PIL import Image, ImageDraw, ImageFont
 _fc = {}
@@ -150,7 +156,7 @@ def wrap(d, text, f, maxw):
     for ch in text:
         if ch == "\n": lines.append(cur); cur = ""; continue
         if d.textlength(cur + ch, font=f) > maxw and cur:
-            if ch in "、。」）！？": cur += ch; continue
+            if ch in "、。」）！？ゃゅょっぁぃぅぇぉャュョッァィゥェォー": cur += ch; continue
             lines.append(cur); cur = ch
         else: cur += ch
     if cur: lines.append(cur)
@@ -275,13 +281,20 @@ def frame(spec, sc, card, spk, text):
     for j, ln in enumerate(sc.get("info", [])[:3]):
         d.text((W // 2, y), ln, font=font(FK if j == 0 else FB, 50 if j == 0 else 42), fill=GOLD if j == 0 else LIGHT, anchor="ma")
         y += 72 if j == 0 else 62
-    x = 90
-    for c in CAST:
-        act = c == spk; sz = 170 if act else 120; yy = 1190 + (0 if act else 30)
-        if act: d.ellipse([x - 8, yy - 8, x + sz + 8, yy + sz + 8], outline=GOLD, width=6)
-        av = avatar(c, sz, act); im.paste(av, (x, yy), av)
-        d.text((x + sz // 2, 1380), CAST[c][0], font=font(FK if act else FB, 34 if act else 28), fill=WHITE if act else GREY, anchor="ma")
-        x += sz + 90
+    cast = spec.get("cast", list(CAST))
+    if len(cast) == 1:  # 1人出演：大きく中央に
+        sz = 190; x = W // 2 - sz // 2; yy = 1175
+        d.ellipse([x - 8, yy - 8, x + sz + 8, yy + sz + 8], outline=GOLD, width=6)
+        av = avatar(cast[0], sz, True); im.paste(av, (x, yy), av)
+        d.text((W // 2, 1385), CAST[cast[0]][0], font=font(FK, 34), fill=WHITE, anchor="ma")
+    else:
+        x = 90
+        for c in cast:
+            act = c == spk; sz = 170 if act else 120; yy = 1190 + (0 if act else 30)
+            if act: d.ellipse([x - 8, yy - 8, x + sz + 8, yy + sz + 8], outline=GOLD, width=6)
+            av = avatar(c, sz, act); im.paste(av, (x, yy), av)
+            d.text((x + sz // 2, 1380), CAST[c][0], font=font(FK if act else FB, 34 if act else 28), fill=WHITE if act else GREY, anchor="ma")
+            x += sz + 90
     f = font(FB, 46); lines = wrap(d, text, f, 800); y0 = 1440; hh = 40 + 62 * len(lines)
     d.rounded_rectangle([50, y0, 960, y0 + hh], 22, fill=(0, 0, 0)); d.rectangle([50, y0 + 14, 60, y0 + hh - 14], fill=CAST[spk][1])
     for i, ln in enumerate(lines): d.text((90, y0 + 20 + 62 * i), ln, font=f, fill=WHITE)
@@ -294,19 +307,21 @@ def render(a):
         if bad: sys.exit("表記の誤り：" + "、".join(bad) + "（台本を直して再実行）")
     setup_voice()
     work = a.work or os.path.splitext(a.out)[0] + "_work"; os.makedirs(work, exist_ok=True)
-    lst = []; i = 0
+    lst = []; i = 0; yomi = []
     for sc in spec["scenes"]:
         card = art(sc["art"], sc.get("args", {}))
-        for li, (spk, text) in enumerate(sc["lines"]):
+        for li, ln in enumerate(sc["lines"]):
+            spk, text = ln[0], ln[1]; say = ln[2] if len(ln) > 2 else text  # 3つ目があれば読み上げ用の文
             p = f"{work}/f{i:03d}"; i += 1
             frame(spec, sc, card, spk, text).save(p + ".png")
-            dur = tts(spk, text, p + ".wav")
+            dur = tts(spk, say, p + ".wav"); yomi.append(f"{i:02d} {spk} {reading(say)}")
             if a.frames_only: continue
             vf = f"format=yuv420p,loop=-1:1,trim=duration={dur:.3f}" + (",fade=t=in:st=0:d=0.2" if li == 0 else "")
             subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-framerate", str(FPS), "-i", p + ".png", "-i", p + ".wav", "-vf", vf,
                             "-c:v", "libx264", "-preset", "veryfast", "-crf", "20", "-pix_fmt", "yuv420p", "-r", str(FPS),
                             "-c:a", "aac", "-b:a", "160k", "-ar", "48000", "-ac", "2", "-shortest", p + ".tmp.mp4"], check=True)
             os.rename(p + ".tmp.mp4", p + ".mp4"); lst.append(f"file '{os.path.abspath(p)}.mp4'")
+    open(f"{work}/yomi.txt", "w").write("\n".join(yomi))  # 読みの確認用（カタカナ）
     if a.frames_only: print(work); return
     open(f"{work}/list.txt", "w").write("\n".join(lst))
     subprocess.run(["ffmpeg", "-y", "-loglevel", "error", "-f", "concat", "-safe", "0", "-i", f"{work}/list.txt",
